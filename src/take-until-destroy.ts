@@ -1,16 +1,16 @@
-import { Subject } from 'rxjs/Subject'
-import { Observable } from 'rxjs/Observable'
-import { takeUntil } from 'rxjs/operators/takeUntil'
+import { Subject } from 'rxjs/Subject';
+import { Observable } from 'rxjs/Observable';
+import { takeUntil } from 'rxjs/operators/takeUntil';
+import { MonoTypeOperatorFunction } from 'rxjs/interfaces';
 
-import { ErrorMessages } from './error-messages'
-import { MonoTypeOperatorFunction } from 'rxjs/interfaces'
+import { ErrorMessages } from './error-messages';
 
 /**
  * A Map where the component instance is stored as the key
  * and the destroy$ subject as the value
  * @type {WeakMap<Object, Observable>}
  */
-const instanceDestroy$Map = new WeakMap()
+const instanceDestroy$Map: WeakMap<object, any> = new WeakMap();
 
 /**
  * An RxJs operator which takes an Angular class instance as a parameter. When the component is destroyed, the stream will be
@@ -46,28 +46,35 @@ const instanceDestroy$Map = new WeakMap()
  * @param {Object} target (normally `this`)
  * @returns {Observable<T>}
  */
-export const takeUntilDestroy = <T>(target: any): MonoTypeOperatorFunction<T> => <T>(stream: Observable<T>) => {
-  const originalDestroy = target.ngOnDestroy
+export const takeUntilDestroy: any = <T>(target: any): MonoTypeOperatorFunction<T> => <T>(stream: Observable<T>) => {
+  const originalDestroy: any = target.ngOnDestroy;
 
-  if (!(originalDestroy && typeof originalDestroy === 'function')) {
-    throw new Error(ErrorMessages.NO_NGONDESTROY)
+  // Shortcut
+  if (originalDestroy !== 'function') {
+    throw new Error(ErrorMessages.NO_NGONDESTROY);
   }
 
   if (instanceDestroy$Map.has(target)) {
-    const destroy$FoundInMap: Observable<null> = instanceDestroy$Map.get(target)
-    return stream.pipe(takeUntil(destroy$FoundInMap))
+    const destroy$FoundInMap: Observable<null> = instanceDestroy$Map.get(target);
+
+    return stream.pipe(takeUntil(destroy$FoundInMap));
   }
 
-  const newDestroy$ = new Subject<null>()
+  const newDestroy$: Subject<null> = new Subject<null>();
 
-  instanceDestroy$Map.set(target, newDestroy$.asObservable())
+  instanceDestroy$Map.set(target, newDestroy$.asObservable());
 
-  target.ngOnDestroy = function () {
-    originalDestroy.apply(this, arguments)
+  target.ngOnDestroy = function (): void {
+    // No need to call or apply with arguments, ngOnDestroy is supposed to be a callback without any args
+    // Call is faster than apply.
+    originalDestroy.call(target);
 
-    newDestroy$.next()
-    newDestroy$.complete()
-  }
+    newDestroy$.next();
+    newDestroy$.complete();
 
-  return stream.pipe(takeUntil(newDestroy$.asObservable()))
-}
+    // Be sure target is removed from map after destroy (could be a memory leak after a lot of route change and/or on component reload)
+    instanceDestroy$Map.delete(target);
+  };
+
+  return stream.pipe(takeUntil(newDestroy$.asObservable()));
+};
