@@ -50,7 +50,7 @@ export const takeUntilDestroy: any = <T>(target: any): MonoTypeOperatorFunction<
   const originalDestroy: any = target.ngOnDestroy;
 
   // Shortcut
-  if (originalDestroy !== 'function') {
+  if (typeof originalDestroy !== 'function') {
     throw new Error(ErrorMessages.NO_NGONDESTROY);
   }
 
